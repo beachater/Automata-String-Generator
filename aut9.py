@@ -11,44 +11,55 @@ def rename_states(dfa):
     """
     Renames the states of a DFA to sequential letters starting from 'A'.
     """
-    # Map existing states to sequential letters
     state_mapping = {state: State(chr(65 + idx)) for idx, state in enumerate(dfa.states)}
 
-    # Create a new DFA with renamed states
     renamed_dfa = dfa.__class__()
-    
-    # Set the renamed start state
+
+    # Rename and set the start state
     renamed_dfa.add_start_state(state_mapping[dfa.start_state])
 
-    # Set the renamed final states
+    # Rename and add final states
     for final_state in dfa.final_states:
         renamed_dfa.add_final_state(state_mapping[final_state])
 
-    # Add transitions with renamed states
-    for state in dfa.states:
-        for symbol in dfa.symbols:
-            transitions = dfa.to_dict()
-            if state in transitions and symbol in transitions[state]:
-                next_state = transitions[state][symbol]
-                renamed_dfa.add_transition(state_mapping[state], symbol, state_mapping[next_state])
+    # Rename and add transitions
+    transitions = dfa.to_dict()  # Get all transitions
+    for state, symbol_dict in transitions.items():
+        for symbol, next_state in symbol_dict.items():
+            renamed_dfa.add_transition(
+                state_mapping[state], symbol, state_mapping[next_state]
+            )
 
     return renamed_dfa
 
-def add_final_state_self_loops(dfa):
-    """
-    Adds a self-loop to each final state for the symbol that leads to it.
-    This imitates the behavior of an NFA where the final state can accept more input symbols.
-    """
-    transitions = dfa.to_dict()
 
-    # Iterate over all final states
-    for final_state in dfa.final_states:
-        # Iterate over all transitions to find the symbol that leads to the final state
-        for state, transition_dict in transitions.items():
-            for symbol, next_state in transition_dict.items():
-                if next_state == final_state:
-                    # Add a self-loop for this symbol on the final state
-                    dfa.add_transition(final_state, symbol, final_state)
+from pyformlang.finite_automaton import State, Symbol
+
+def add_sink_state(dfa):
+    """
+    Adds a sink state to the DFA only for truly undefined transitions.
+    Transitions should go to the sink state when no valid transition exists, but
+    we ensure that valid transitions to final states don't erroneously go to the sink.
+    """
+    sink_state = State("sink")
+    transitions = dfa.to_dict()  # Get the DFA transitions as a dictionary
+
+    # Identify all the symbols used in the DFA
+    all_symbols = set(symbol for state in transitions for symbol in transitions[state])
+
+    # Iterate over all states and symbols
+    for state in list(dfa.states):  # Use a copy of the DFA states
+        for symbol in all_symbols:
+            # Add a transition to the sink state if no valid transition exists
+            if state not in transitions or symbol not in transitions[state]:
+                # Only add the transition to the sink state if we're not in a final state
+                if state not in dfa.final_states:
+                    dfa.add_transition(state, symbol, sink_state)
+
+    # Ensure the sink state has self-loop transitions for all symbols
+    if sink_state not in dfa.states:  # Only add the sink state if used
+        for symbol in all_symbols:
+            dfa.add_transition(sink_state, symbol, sink_state)
 
     return dfa
 
@@ -61,12 +72,13 @@ def user_regex_to_dfa(regex_string):
     """
     try:
         # Convert the regex to a minimal DFA
-        dfa = Regex(regex_string).to_epsilon_nfa().to_deterministic().minimize()
+        dfa = Regex(regex_string).to_epsilon_nfa().to_deterministic()
+
+        # Add sink state if the DFA is incomplete
+        dfa = add_sink_state(dfa)
 
         # Rename the states
         renamed_dfa = rename_states(dfa)
-        
-        renamed_dfa = add_final_state_self_loops(renamed_dfa)
 
         print("\nDFA Details (with renamed states):")
         print(f"Start State: {renamed_dfa.start_state}")
@@ -131,8 +143,6 @@ def enumerate_strings(dfa, max_length):
 
 import pygraphviz as pgv
 
-import pygraphviz as pgv
-
 def visualize_dfa(dfa, layout='dot'):
     """
     Visualizes the DFA as a graph using pygraphviz with structured and clean edges.
@@ -145,8 +155,8 @@ def visualize_dfa(dfa, layout='dot'):
     # Set graph attributes for clean, structured layout
     graph.graph_attr.update(
         rankdir='LR',  # Horizontal layout
-        nodesep='1',  # Space between nodes
-        ranksep='1.5',  # Space between ranks (hierarchical layers)
+        nodesep='.50',  # Space between nodes
+        ranksep='.7',  # Space between ranks (hierarchical layers)
         concentrate='false',  # Combine edges with same direction where possible
     )
 
@@ -171,8 +181,6 @@ def visualize_dfa(dfa, layout='dot'):
     graph.layout(prog=layout)  # Set layout engine (default is 'dot' for structure)
 
     return graph
-
-
 
 
 def main():

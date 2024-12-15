@@ -6,6 +6,7 @@ from pyformlang.finite_automaton import Symbol
 import pygraphviz as pgv
 from io import StringIO
 from pyformlang.finite_automaton import State
+from pyformlang.finite_automaton import DeterministicFiniteAutomaton
 
 def rename_states(dfa):
     """
@@ -52,8 +53,6 @@ def add_final_state_self_loops(dfa):
 
     return dfa
 
-
-
 def user_regex_to_dfa(regex_string):
     """
     Converts a user-provided regex string into a deterministic finite automaton (DFA),
@@ -77,7 +76,6 @@ def user_regex_to_dfa(regex_string):
     except Exception as e:
         print(f"Error converting regex to DFA: {e}")
         return None
-
 
 def generate_random_string(dfa, max_length):
     """
@@ -111,7 +109,6 @@ def generate_random_string(dfa, max_length):
 
     return None  # Return None if no valid string could be generated after attempts
 
-
 def enumerate_strings(dfa, max_length):
     """
     Enumerates all valid strings accepted by the DFA up to a given max string length.
@@ -127,11 +124,6 @@ def enumerate_strings(dfa, max_length):
                 valid_strings.append("".join(map(str, sequence)))
 
     return valid_strings
-
-
-import pygraphviz as pgv
-
-import pygraphviz as pgv
 
 def visualize_dfa(dfa, layout='dot'):
     """
@@ -172,29 +164,83 @@ def visualize_dfa(dfa, layout='dot'):
 
     return graph
 
-
-
-
 def main():
     st.title("Formal Language String Generator Tool")
 
-    # Input for regular expression
-    user_input_regex = st.text_input("Enter a regular expression (e.g., a*(01|0)*b):")
-    
-    if user_input_regex:
-        # Convert the regex to DFA
-        st.text("Converting regex to DFA...")
-        dfa = user_regex_to_dfa(user_input_regex)
+    # Provide option to either generate DFA from regex or manually create automaton
+    option = st.radio("Choose an option", ("Generate from Regex", "Make Own Automaton"))
 
-        if dfa:
+    if option == "Generate from Regex":
+        # Input for regular expression
+        user_input_regex = st.text_input("Enter a regular expression (e.g., a*(01|0)*b):")
+        
+        if user_input_regex:
+            # Convert the regex to DFA
+            st.text("Converting regex to DFA...")
+            dfa = user_regex_to_dfa(user_input_regex)
+
+            if dfa:
+                # Visualize DFA
+                st.subheader("DFA Visualization")
+                graph = visualize_dfa(dfa)
+                img_path = "/tmp/dfa_graph.png"
+                graph.layout(prog="dot")
+                graph.draw(img_path)
+                st.image(img_path)
+
+                # Option for generating random strings
+                st.subheader("Generate Random Strings")
+                num_strings = st.number_input("Number of random strings to generate", min_value=1, value=5)
+                max_length = st.number_input("Enter the maximum string length", min_value=1, value=5)
+
+                if st.button("Generate"):
+                    st.text("Generated Random Strings:")
+                    for _ in range(num_strings):
+                        rand_string = generate_random_string(dfa, max_length)
+                        if rand_string:
+                            st.text(rand_string)
+                        else:
+                            st.text("Failed to generate a valid string.")
+
+                # Option for enumerating valid strings
+                st.subheader("Enumerate Valid Strings")
+                max_enum_length = st.number_input("Enter the maximum length to enumerate", min_value=1, value=5)
+
+                if st.button("Enumerate"):
+                    st.text("Enumerating strings...")
+                    valid_strings = enumerate_strings(dfa, max_enum_length)
+                    st.text(f"Total strings found: {len(valid_strings)}")
+                    for string in valid_strings:
+                        st.text(string)
+
+    elif option == "Make Own Automaton":
+        # Manually create DFA
+
+        start_state = st.text_input("Enter start state:")
+        final_states = st.text_input("Enter final states (comma separated):").split(",")
+        transitions_input = st.text_area("Enter transitions (format: state1,symbol,state2):")
+        
+        if start_state and final_states and transitions_input:
+            dfa = DeterministicFiniteAutomaton()
+            dfa.add_start_state(State(start_state))
+
+            for final_state in final_states:
+                dfa.add_final_state(State(final_state.strip()))
+
+            for transition in transitions_input.splitlines():
+                state1, symbol, state2 = transition.split(",")
+                dfa.add_transition(State(state1.strip()), symbol.strip(), State(state2.strip()))
+
+            dfa = add_final_state_self_loops(dfa)
+
             # Visualize DFA
             st.subheader("DFA Visualization")
             graph = visualize_dfa(dfa)
-            img_path = "/tmp/dfa_graph.png"
+            img_path = "/tmp/dfa_manual_graph.png"
             graph.layout(prog="dot")
             graph.draw(img_path)
             st.image(img_path)
-
+            
             # Option for generating random strings
             st.subheader("Generate Random Strings")
             num_strings = st.number_input("Number of random strings to generate", min_value=1, value=5)
@@ -219,8 +265,6 @@ def main():
                 st.text(f"Total strings found: {len(valid_strings)}")
                 for string in valid_strings:
                     st.text(string)
-        else:
-            st.error("Invalid regex or unable to generate DFA.")
 
 if __name__ == "__main__":
     main()
