@@ -13,7 +13,7 @@ def user_regex_to_dfa(regex_string):
     """
     try:
         # Convert the regex to a minimal DFA
-        dfa = Regex(regex_string).to_epsilon_nfa().to_deterministic().minimize()
+        dfa = Regex(regex_string).to_epsilon_nfa().to_deterministic()
         return dfa
     except Exception as e:
         st.error(f"Error converting regex to DFA: {e}")

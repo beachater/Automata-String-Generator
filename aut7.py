@@ -10,7 +10,7 @@ def user_regex_to_dfa(regex_string):
     """
     try:
         # Convert the regex to a minimal DFA
-        dfa = Regex(regex_string).to_epsilon_nfa().to_deterministic().minimize()
+        dfa = Regex(regex_string).to_epsilon_nfa().to_deterministic()
         print("\nDFA Details:")
         print(f"Start State: {dfa.start_state}")
         print(f"Final States: {dfa.final_states}")
